@@ -116,7 +116,7 @@ model.eval()
 model.cpu()
 
 
-# Pepare train data distribution
+# Prepare train data distribution
 Z = []
 reconstruction_error = []
 
@@ -137,7 +137,7 @@ Z = np.array(Z)
 reconstruction_error = np.array(reconstruction_error)
 
 
-# Sample for quering
+# Samples for quering
 sample_pos = [[5.1, 20.5,  1.0,  4.9],
               [4.1, 16.3,  1.0,  6.1],
               [9.1, 36.5,  1.0,  2.7],
@@ -191,8 +191,9 @@ z_prime_pos_2d = pca.transform(z_prime_pos)
 z_prime_neg_2d = pca.transform(z_prime_neg)
 
 plt.scatter(Z_2d[:, 0], Z_2d[:, 1], color='k')
-plt.scatter(z_prime_pos_2d[:, 0],z_prime_pos_2d[:, 1] , color='g')
-plt.scatter(z_prime_neg_2d[:, 0],z_prime_neg_2d[:, 1] , color='r')
+plt.scatter(z_prime_pos_2d[:, 0],z_prime_pos_2d[:, 1] , color='g', label='normal')
+plt.scatter(z_prime_neg_2d[:, 0],z_prime_neg_2d[:, 1] , color='r', label='abnormal')
+plt.legend()
 plt.show()
 
 
