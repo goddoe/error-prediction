@@ -10,34 +10,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances
 
 # ======================================
-# Modeling
-class SequenceModel(nn.Module):
-    def __init__(self, input_size=4, output_dim=4, hidden_size=256, num_layers=1):
-        super(SequenceModel, self).__init__()
-        self.lstm = nn.LSTM(input_size=input_size,
-                            hidden_size=hidden_size,
-                            num_layers=num_layers,
-                            batch_first=True)
-        self.scaler = nn.Parameter(torch.ones(input_size))
-        self.linear = nn.Linear(hidden_size, output_dim)
-
-    def forward(self, x):
-        x = x * self.scaler
-        zs, hidden = self.lstm(x)
-        z = zs[:, -1]
-        v = self.linear(zs)
-        return v, z
-
-
-# ======================================
 # Prepare Data
-data = pd.read_csv("./data.tsv", sep='\t', index_col=False)
-
-window_size = 10
-batch_size = 1024
-hidden_size = 768
-
-
 def make_batch(data, batch_size, window_size, shuffle=True):
     window_list = []
     for i in range(len(data) - window_size - 1):
@@ -56,32 +29,53 @@ def make_batch(data, batch_size, window_size, shuffle=True):
 
     return batch_list
 
+data = pd.read_csv("./data.tsv", sep='\t', index_col=False)
 data = data.to_numpy()
+
+# ======================================
+# Modeling
+class SequenceModel(nn.Module):
+    def __init__(self, input_size=4, output_dim=4, hidden_size=256, num_layers=1):
+        super(SequenceModel, self).__init__()
+        self.lstm = nn.LSTM(input_size=input_size,
+                            hidden_size=hidden_size,
+                            num_layers=num_layers,
+                            batch_first=True)
+        self.scaler_bias = nn.Parameter(torch.ones(input_size, requires_grad=True))
+        self.scaler = nn.Parameter(torch.ones(input_size, requires_grad=True))
+        self.linear = nn.Linear(hidden_size, output_dim)
+
+    def forward(self, x):
+        x = (x + self.scaler_bias) * self.scaler
+        zs, hidden = self.lstm(x)
+        z = zs[:, -1]
+        v = self.linear(zs)
+        return v, z
 
 
 # ======================================
 # Training
+window_size = 10
+batch_size = 64
+hidden_size = 128
 use_cuda = True
-n_epoch = 1000000
 
 model = SequenceModel(input_size=4,
                       output_dim=4,
                       hidden_size=hidden_size,
-                      num_layers=4)
+                      num_layers=1)
 
 if use_cuda:
     model.cuda()
 
-# model = nn.DataParallel(model)
-
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 loss_fn = nn.MSELoss()
 
+n_epoch = 100000000
 ema_loss = None
 alpha = 0.1
 verbose_interval = 50
 
-model.train()
 for epoch_i in range(n_epoch):
 
     batch_list = make_batch(data, batch_size, window_size+1)
@@ -118,16 +112,13 @@ for epoch_i in range(n_epoch):
 
 # ======================================
 # Inference
-
 model.eval()
-
 model.cpu()
 
 
 # Pepare train data distribution
 Z = []
 reconstruction_error = []
-
 
 batch_list = make_batch(data, batch_size, window_size, False)
 for batch_i, batch in enumerate(batch_list):
@@ -140,8 +131,7 @@ for batch_i, batch in enumerate(batch_list):
     v, z = model(batch_input)
 
     Z.extend(z.tolist())
-
-    reconstruction_error.extend( torch.sum(torch.abs(v-batch_input), dim=[1,2]).detach().tolist())
+    reconstruction_error.extend(torch.sum(torch.abs(v-batch_input), dim=[1,2]).detach().tolist())
 
 Z = np.array(Z)
 reconstruction_error = np.array(reconstruction_error)
@@ -175,28 +165,23 @@ sample_neg = [[ 66, 267,   5,   0],
 sample_pos = np.array(sample_pos)  # sequence_length x feature size
 sample_pos = torch.tensor(sample_pos, dtype=torch.float32)  # sequence_length x feature size
 sample_pos = sample_pos.unsqueeze(0)  # 1 x sequence_length x feature size
-
 prediction_pos, z_prime_pos = model(sample_pos)
 
 # neg
 sample_neg = np.array(sample_neg)  # sequence_length x feature size
 sample_neg = torch.tensor(sample_neg, dtype=torch.float32)  # sequence_length x feature size
 sample_neg = sample_neg.unsqueeze(0)  # 1 x sequence_length x feature size
-
 prediction_neg, z_prime_neg = model(sample_neg)
-
 
 z_prime_pos = z_prime_pos.detach().numpy()
 z_prime_neg = z_prime_neg.detach().numpy()
-
 
 reconstruction_error_pos = torch.sum(torch.abs(prediction_pos - sample_pos), dim=[1,2]).detach().tolist()
 reconstruction_error_neg = torch.sum(torch.abs(prediction_neg - sample_neg), dim=[1,2]).detach().tolist()
 
 
-
 # ======================================
-# Visualization
+# Visualize latent space
 pca = PCA(n_components=2)
 pca.fit(Z)
 
@@ -212,13 +197,13 @@ plt.show()
 
 
 # ======================================
-# Reconstruction Error
+# Plot Reconstruction Error 
 neg_height = 50
 min_val = min(min(reconstruction_error), min(reconstruction_error_neg))
 max_val = max(max(reconstruction_error), max(reconstruction_error_neg))
 bins = np.linspace(min_val, 
                    max_val,
-                   math.floor((max_val-min_val)/100))
+                   100)
 
 plt.hist(reconstruction_error_neg * neg_height, bins=bins, alpha=0.5, color='red', label='abnormal')
 plt.hist(reconstruction_error, bins=bins, alpha=0.5,color='k', label='normal')
