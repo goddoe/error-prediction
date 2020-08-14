@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+from sklearn.metrics import pairwise_distances
 
 # ======================================
 # Modeling
@@ -93,30 +94,12 @@ for epoch_i in range(n_epoch):
     print(f"{epoch_i}th epoch, loss: {ema_loss}")
 
 
+model.eval()
+
 # ======================================
 # Inference
-sample = [[5.1, 20.5,  1. ,  4.9],
-          [4.1, 16.3,  1. ,  6.1],
-          [9.1, 36.5,  1. ,  2.7],
-          [2.3,  9.2,  1. , 10.9],
-          [1.6,  6.4,  1. , 15.7],
-          [6.6, 26.3,  1. ,  3.8],
-          [8. , 31.9,  1. ,  3.1],
-          [7.8, 31.1,  1. ,  3.2],
-          [7. , 28. ,  1. ,  3.6],
-          [7. , 28. ,  1. ,  3.6]]
 
-sample = np.array(sample)  # sequence_length x feature size
-sample = torch.tensor(sample, dtype=torch.float32)  # sequence_length x feature size
-sample = sample.unsqueeze(0)  # 1 x sequence_length x feature size
-
-prediction = model(sample)
-
-
-
-# ======================================
-# Visualization
-
+# Pepare train data distribution
 Z = []
 
 batch_list = make_batch(data, batch_size, window_size)
@@ -129,10 +112,47 @@ for batch_i, batch in enumerate(batch_list):
 
     _, z = model(batch_input)
 
-    Z.append(z.tolist())
+    Z.extend(z.tolist())
+
+Z = np.array(Z)
+
+
+# Sample for quering
+sample = [[5.1, 20.5,  1.0,  4.9],
+          [4.1, 16.3,  1.0,  6.1],
+          [9.1, 36.5,  1.0,  2.7],
+          [2.3,  9.2,  1.0, 10.9],
+          [1.6,  6.4,  1.0, 15.7],
+          [6.6, 26.3,  1.0,  3.8],
+          [8.0, 31.9,  1.0,  3.1],
+          [7.8, 31.1,  1.0,  3.2],
+          [7.0,  28.,  1.0,  3.6],
+          [7.0,  28.,  1.0,  3.6]]
+
+sample = np.array(sample)  # sequence_length x feature size
+sample = torch.tensor(sample, dtype=torch.float32)  # sequence_length x feature size
+sample = sample.unsqueeze(0)  # 1 x sequence_length x feature size
+
+prediction, z_prime = model(sample)
+
+z_prime = z_prime.detach().numpy()
+
+
+dist_vector = pairwise_distances(z_prime, Z)
+
+
+
+# ======================================
+# Visualization
 
 pca = PCA(n_components=2)
-pca.fit(Z)
+pca.fit(np.array(Z))
+
+Z_2d = pca.transform(Z)
+
+plt.scatter(Z_2d[:, 0], Z_2d[:, 1])
+plt.show()
+
 
 
 
