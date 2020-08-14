@@ -11,9 +11,12 @@ import matplotlib.pyplot as plt
 # ======================================
 # Modeling
 class SequenceModel(nn.Module):
-    def __init__(self, input_size=4, hidden_size=256):
+    def __init__(self, input_size=4, hidden_size=256, num_layers=4):
         super(SequenceModel, self).__init__()
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, batch_first=True)
+        self.lstm = nn.LSTM(input_size=input_size,
+                            hidden_size=hidden_size,
+                            num_layers=num_layers,
+                            batch_first=True)
         self.linear = nn.Linear(hidden_size, 4)
 
     def forward(self, x):
@@ -28,7 +31,7 @@ data = pd.read_csv("./data.tsv", sep='\t', index_col=False)
 
 window_size = 10
 batch_size = 32
-hidden_size = 256
+hidden_size = 128
 
 
 def make_batch(data, batch_size, window_size):
@@ -52,9 +55,9 @@ data = data.to_numpy()
 
 # ======================================
 # Training
-n_epoch = 100
+n_epoch = 10000
 
-model = SequenceModel(input_size=4, hidden_size=hidden_size)
+model = SequenceModel(input_size=4, hidden_size=hidden_size, num_layers=2)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 loss_fn = nn.MSELoss()
 
@@ -85,22 +88,21 @@ for epoch_i in range(n_epoch):
             ema_loss = loss.item()
         ema_loss = loss.item() * alpha + (1.-alpha) * ema_loss
 
-    print(f"{epoch_i}th epoch, loss: {loss.item()}")
+    print(f"{epoch_i}th epoch, loss: {ema_loss}")
 
 
 # ======================================
 # Inference
-
-sample = [[5.6, 22.2,  1.0,  4.5],
-          [5.0, 20.1,  1.0,  5.0],
-          [4.7, 18.8,  1.0,  5.3],
-          [3.2, 12.9,  1.0,  7.7],
-          [4.2, 16.7,  1.0,  6.0],
-          [7.2, 28.7,  1.0,  3.5],
-          [6.0, 23.9,  1.0,  4.2],
-          [3.7, 14.9,  1.0,  6.7],
-          [2.3,  9.2,  1.0, 10.9],
-          [6.4, 25.8,  1.0,  3.9]]
+sample = [[5.1, 20.5,  1. ,  4.9],
+          [4.1, 16.3,  1. ,  6.1],
+          [9.1, 36.5,  1. ,  2.7],
+          [2.3,  9.2,  1. , 10.9],
+          [1.6,  6.4,  1. , 15.7],
+          [6.6, 26.3,  1. ,  3.8],
+          [8. , 31.9,  1. ,  3.1],
+          [7.8, 31.1,  1. ,  3.2],
+          [7. , 28. ,  1. ,  3.6],
+          [7. , 28. ,  1. ,  3.6]]
 
 sample = np.array(sample)  # sequence_length x feature size
 sample = torch.tensor(sample, dtype=torch.float32)  # sequence_length x feature size
