@@ -6,12 +6,12 @@ import torch.optim as optim
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from sklearn.decomposition import PCA
 
 # ======================================
 # Modeling
 class SequenceModel(nn.Module):
-    def __init__(self, input_size=4, hidden_size=256, num_layers=4):
+    def __init__(self, input_size=4, hidden_size=256, num_layers=2):
         super(SequenceModel, self).__init__()
         self.lstm = nn.LSTM(input_size=input_size,
                             hidden_size=hidden_size,
@@ -21,13 +21,15 @@ class SequenceModel(nn.Module):
 
     def forward(self, x):
         zs, hidden = self.lstm(x)
+        z = zs[:, -1]
         v = self.linear(zs)
-        return v
+        return v, z
 
 
 # ======================================
 # Prepare Data
 data = pd.read_csv("./data.tsv", sep='\t', index_col=False)
+data = data[:100]
 
 window_size = 10
 batch_size = 32
@@ -66,7 +68,7 @@ alpha = 0.1
 
 for epoch_i in range(n_epoch):
 
-    batch_list = make_batch(data, batch_size, window_size)
+    batch_list = make_batch(data, batch_size, window_size+1)
     for batch_i, batch in enumerate(batch_list):
         optimizer.zero_grad()
 
@@ -77,7 +79,7 @@ for epoch_i in range(n_epoch):
         batch_input = torch.tensor(batch_input, dtype=torch.float32)
         batch_output = torch.tensor(batch_output, dtype=torch.float32)
 
-        v = model(batch_input)
+        v, _ = model(batch_input)
 
         loss = loss_fn(v, batch_output)
 
@@ -109,3 +111,28 @@ sample = torch.tensor(sample, dtype=torch.float32)  # sequence_length x feature 
 sample = sample.unsqueeze(0)  # 1 x sequence_length x feature size
 
 prediction = model(sample)
+
+
+
+# ======================================
+# Visualization
+
+Z = []
+
+batch_list = make_batch(data, batch_size, window_size)
+for batch_i, batch in enumerate(batch_list):
+    batch = np.array(batch)
+    batch_input = batch
+
+    batch_input = torch.tensor(batch_input, dtype=torch.float32)
+    batch_output = torch.tensor(batch_output, dtype=torch.float32)
+
+    _, z = model(batch_input)
+
+    Z.append(z.tolist())
+
+pca = PCA(n_components=2)
+pca.fit(Z)
+
+
+
