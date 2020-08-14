@@ -8,12 +8,6 @@ import pandas as pd
 
 
 # ======================================
-# Data
-
-data = pd.read_csv("./data.tsv", sep='\t', index_col=False) 
-
-
-# ======================================
 # Modeling
 class SequenceModel(nn.Module):
     def __init__(self):
@@ -27,10 +21,10 @@ class SequenceModel(nn.Module):
         return v
 
 
-
-
 # ======================================
 # Prepare Data
+data = pd.read_csv("./data.tsv", sep='\t', index_col=False)
+
 window_size = 10
 batch_size = 32
 hidden_size = 128
@@ -51,6 +45,7 @@ def make_batch(data, batch_size, window_size):
     batch_list = np.array(batch_list)
 
     return batch_list
+
 
 data = data.to_numpy()
 batch_list = make_batch(data, batch_size, window_size)
@@ -84,5 +79,3 @@ for epoch_i in range(n_epoch):
         optimizer.step()
 
     print(f"{epoch_i}th epoch, loss: {loss.item()}")
-
-
