@@ -56,14 +56,14 @@ class SequenceModel(nn.Module):
 # ======================================
 # Training
 window_size = 10
-batch_size = 64
-hidden_size = 128
+batch_size = 128
+hidden_size = 256
 use_cuda = True
 
 model = SequenceModel(input_size=4,
                       output_dim=4,
                       hidden_size=hidden_size,
-                      num_layers=1)
+                      num_layers=2)
 
 if use_cuda:
     model.cuda()
@@ -99,6 +99,7 @@ for epoch_i in range(n_epoch):
         loss = loss_fn(v, batch_output)
 
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
         optimizer.step()
 
         if ema_loss is None:
